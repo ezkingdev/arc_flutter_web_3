@@ -3,14 +3,22 @@ import 'package:http/http.dart' as http;
 
 class NotesApiProcessor {
   final String apiUrl = 'https://doggo-byc1.onrender.com/notes/';
+  List<Note>? _cachedNotes; // Add a cache variable
 
   Future<List<Note>> fetchNotes() async {
+    if (_cachedNotes != null) {
+      print('Fetching notes from cache');
+      return _cachedNotes!; // Return cached data if available
+    }
+
     try {
       final response = await http.get(Uri.parse(apiUrl));
 
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(response.body);
-        return data.map((json) => Note.fromJson(json)).toList();
+        _cachedNotes = data.map((json) => Note.fromJson(json)).toList(); // Store fetched data in cache
+        print('Fetched notes from API and stored in cache');
+        return _cachedNotes!;
       } else {
         throw Exception('Failed to load notes');
       }
@@ -32,7 +40,11 @@ class NotesApiProcessor {
           }));
 
       if (response.statusCode == 201) {
-        return Note.fromJson(jsonDecode(response.body));
+        final newNote = Note.fromJson(jsonDecode(response.body));
+        // Invalidate cache after creating a new note to fetch updated list
+        _cachedNotes = null;
+        print('Created new note and invalidated cache');
+        return newNote;
       } else {
         throw Exception('Failed to create note');
       }
@@ -41,10 +53,6 @@ class NotesApiProcessor {
     }
   }
 }
-
-
-
-
 
 class Note {
   final String title;
@@ -85,16 +93,12 @@ class Note {
       id: json['id'],
       createdAt: createdAt,
       createdDate: "${createdAt.day} ${_monthText(createdAt.month)}, ${createdAt.year}",
-      createdTime: "${createdAt.hour}:${createdAt.minute}",
+      createdTime: "${_twoDigits(createdAt.hour)}:${_twoDigits(createdAt.minute)}",
       updatedAt: updatedAt,
-      updatedDate: "${updatedAt.year}-${_monthText(updatedAt.month)}-${updatedAt.day}",
-      updatedTime: "${updatedAt.hour}:${updatedAt.minute}:${updatedAt.second}",
+      updatedDate: "${updatedAt.year}-${_twoDigits(updatedAt.month)}-${_twoDigits(updatedAt.day)}",
+      updatedTime: "${_twoDigits(updatedAt.hour)}:${_twoDigits(updatedAt.minute)}:${_twoDigits(updatedAt.second)}",
     );
   }
-
-
-
-
 
   static String _monthText(int month) {
     final months = [
@@ -102,5 +106,10 @@ class Note {
       'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
     ];
     return months[month - 1];
+  }
+
+  static String _twoDigits(int n) {
+    if (n >= 10) return "$n";
+    return "0$n";
   }
 }
